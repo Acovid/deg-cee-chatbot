@@ -1,5 +1,5 @@
 applications:
-  - name: deg-cee-chatbot-150319
+  - name: deg-cee-chatbot
 command: npm start
 path: .
 memory: 256M
