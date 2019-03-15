@@ -1,6 +1,6 @@
 applications:
-- name: watson-assistant-simple
-  command: npm start
-  path: .
-  memory: 256M
-  instances: 1
+  - name: deg-cee-chatbot-150319
+command: npm start
+path: .
+memory: 256M
+instances: 1

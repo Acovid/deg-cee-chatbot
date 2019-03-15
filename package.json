@@ -1,5 +1,5 @@
 {
-  "name": "DEG CEE chatbot",
+  "name": "deg-cee-chatbot",
   "description": "A simple Node.js based web app which shows how to use the Watson Assistant API to recognize user intents.",
   "version": "0.1.1",
   "main": "server.js",
