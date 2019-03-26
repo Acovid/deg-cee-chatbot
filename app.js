@@ -22,6 +22,83 @@ var AssistantV2 = require('watson-developer-cloud/assistant/v2'); // watson sdk
 
 var app = express();
 
+//SSO implementation
+var passport = require('passport');
+app.use(require('express-session')({ secret: 'DEG-CEE-Chatbot', resave: true, saveUninitialized: true }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+//read environment variables
+var services = JSON.parse(process.env.SSO || "{}");
+var ssoConfig = services.SingleSignOn[0];
+var client_id = ssoConfig.credentials.clientId;
+var client_secret = ssoConfig.credentials.secret;
+var authorization_url = ssoConfig.credentials.authorizationEndpointUrl;
+var token_url = ssoConfig.credentials.tokenEndpointUrl;
+var issuer_id = ssoConfig.credentials.issuerIdentifier;
+var callback_url = ssoConfig.callback_url;
+
+//specify SSO strategy
+var OpenIDConnectStrategy = require('passport-idaas-openidconnect').IDaaSOIDCStrategy;
+var Strategy = new OpenIDConnectStrategy({
+                authorizationURL : authorization_url,
+                tokenURL : token_url,
+                clientID : client_id,
+                scope : 'email',
+                response_type : 'code',
+                clientSecret : client_secret,
+                callbackURL : callback_url,
+                addCACert: true,
+                CACertPathList: [ '/certs/DigiCertGlobalRootCA.crt', '/certs/DigiCertSHA2SecureServerCA.crt', '/certs/oidc_w3id_staging.cer' ],
+                skipUserProfile : true,
+                issuer : issuer_id },
+      function(iss, sub, profile, accessToken, refreshToken, params, done) {
+        process.nextTick(function() {
+            profile.accessToken = accessToken;
+            profile.refreshToken = refreshToken;
+            done(null, profile);
+        })
+      }
+)
+passport.use(Strategy);
+
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
+
+passport.deserializeUser(function(user, done) {
+  done(null, user);
+});
+
+// this is our callback URL !
+app.get('/sso',function(req,res,next) {
+        passport.authenticate('openidconnect', {
+                successRedirect: '/index.html',
+                failureRedirect: '/failure',
+        })(req,res,next);
+    });
+
+app.get('/failure', function(req, res) {
+             res.send('login failed'); });
+
+app.get('/login', passport.authenticate('openidconnect', {}));
+
+app.get('/logout', function(req, res) {
+  req.logout();
+  res.redirect(issuer_id + "/idaas/mtfim/sps/idaas/logout");
+});
+
+//middleware function to restrict usage for authenticated users only
+function ensureAuthenticated(req, res, next) {
+  if(!req.isAuthenticated()) {
+              req.session.originalUrl = req.originalUrl;
+    res.redirect('/login');
+  } else {
+    return next();
+  }
+}
+app.use(ensureAuthenticated);
+
 // Bootstrap application settings
 app.use(express.static('./public')); // load UI from public folder
 app.use(bodyParser.json());
