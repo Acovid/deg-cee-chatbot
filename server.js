@@ -22,19 +22,21 @@ require('dotenv').config({silent: true});
 var server = require('./app');
 var port = process.env.PORT || 3000;
 
-// Lines 26-28 are needed to run the app on the cloud. In this scenario, you must comment out all remaining lines after line 28
-server.listen(port, function() {
- console.log('Server running on port: %d', port);
-});
-
-// Lines 31-40 are needed to run the app on localhost. In this scenario, you must comment out lines 26-28.
-// var fs = require('fs')
-// var https = require('https')
-//
-// https.createServer({
-//   key: fs.readFileSync('certs/server.key'),
-//   cert: fs.readFileSync('certs/server.cert')
-// }, server)
-// .listen(port, function () {
-//   console.log(`Server running. Run the app using SSL: https://localhost:${port}`);
-// });
+if (process.env.BLUEMIX_REGION === undefined) {
+  // run the app on localhost with https
+  var fs = require('fs')
+  var https = require('https')
+  https.createServer({
+    key: fs.readFileSync('certs/server.key'),
+    cert: fs.readFileSync('certs/server.cert')
+  }, server)
+  .listen(port, function () {
+    console.log('Server running with SSL: https://localhost:%d', port);
+  });
+}
+else {
+  // run the app on the cloud
+  server.listen(port, function() {
+   console.log('Server running on port: %d', port);
+  });
+}
