@@ -111,6 +111,8 @@ app.use(bodyParser.json());
 });
 */
 var assistant = new AssistantV2({
+//  iam_apikey: 'MBn46s_fFWWeuroqZvn3omgRwiS0iGdYEMILuutKyrhx',
+//  url: 'https://gateway-fra.watsonplatform.net/assistant/api',
   version: '2019-02-28'
 });
 
