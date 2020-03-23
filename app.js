@@ -18,8 +18,6 @@
 
 var express = require('express'); // app server
 var bodyParser = require('body-parser'); // parser for post requests
-//var AssistantV2 = require('watson-developer-cloud/assistant/v2'); // watson sdk
-var AssistantV2 = require('ibm-watson/assistant/v2');
 
 var app = express();
 
@@ -39,6 +37,14 @@ var token_url = ssoConfig.credentials.tokenEndpointUrl;
 var issuer_id = ssoConfig.credentials.issuerIdentifier;
 var callback_url = ssoConfig.callback_url;
 
+var certlist;
+if (process.env.BLUEMIX_REGION === undefined) {
+  certlist = [ '/certs/DigiCertGlobalRootCA.crt', '/certs/DigiCertSHA2SecureServerCA.crt', '/certs/oidc_w3id_staging.cer' ];
+}
+else {
+  certlist = [ '../../../app/certs/DigiCertGlobalRootCA.crt', '../../../app/certs/DigiCertSHA2SecureServerCA.crt', '../../../app/certs/oidc_w3id_staging.cer' ];
+}
+
 //specify SSO strategy
 var OpenIDConnectStrategy = require('passport-idaas-openidconnect').IDaaSOIDCStrategy;
 var Strategy = new OpenIDConnectStrategy({
@@ -50,7 +56,7 @@ var Strategy = new OpenIDConnectStrategy({
                 clientSecret : client_secret,
                 callbackURL : callback_url,
                 addCACert: true,
-                CACertPathList: [ '/certs/DigiCertGlobalRootCA.crt', '/certs/DigiCertSHA2SecureServerCA.crt', '/certs/oidc_w3id_staging.cer' ],
+                CACertPathList: certlist,
                 skipUserProfile : true,
                 issuer : issuer_id },
       function(iss, sub, profile, accessToken, refreshToken, params, done) {
@@ -100,21 +106,35 @@ function ensureAuthenticated(req, res, next) {
 }
 app.use(ensureAuthenticated);
 
+
+
 // Bootstrap application settings
 app.use(express.static('./public')); // load UI from public folder
 app.use(bodyParser.json());
 
-// Create the service wrapper
 
-/*var assistant = new AssistantV2({
-  version: '2018-11-08'
+
+// Create Assistant
+const AssistantV2 = require('ibm-watson/assistant/v2');
+const { IamAuthenticator } = require('ibm-watson/auth');
+
+const assistantId = process.env.ASSISTANT_ID || '<assistant-id>';
+const assistantUrl = process.env.ASSISTANT_URL || '<assistant-url>';
+const assistantApiKey = process.env.ASSISTANT_IAM_APIKEY || '<apikey>';
+
+// console.log("Assitant ID: " + assistantId);
+// console.log("Assitant URL: " + assistantUrl);
+// console.log("Assitant ApiKey: " + assistantApiKey);
+
+const assistant = new AssistantV2({
+  version: '2020-02-05',
+  authenticator: new IamAuthenticator({
+    apikey: assistantApiKey
+  }),
+  url: assistantUrl
 });
-*/
-var assistant = new AssistantV2({
-//  iam_apikey: 'MBn46s_fFWWeuroqZvn3omgRwiS0iGdYEMILuutKyrhx',
-//  url: 'https://gateway-fra.watsonplatform.net/assistant/api',
-  version: '2019-02-28'
-});
+
+
 
 var newContext = {
   global : {
@@ -126,7 +146,6 @@ var newContext = {
 
 // Endpoint to be call from the client side
 app.post('/api/message', function (req, res) {
-  var assistantId = process.env.ASSISTANT_ID || '<assistant-id>';
   if (!assistantId || assistantId === '<assistant-id>>') {
     return res.json({
       'output': {
@@ -134,7 +153,6 @@ app.post('/api/message', function (req, res) {
       }
     });
   }
-  console.log("AssitantID: " + assistantId);
 
   var contextWithAcc = (req.body.context) ? req.body.context : newContext;
 
@@ -150,41 +168,44 @@ app.post('/api/message', function (req, res) {
     textIn = req.body.input.text;
   }
 
-  var payload = {
-    assistant_id: assistantId,
-    session_id: req.body.session_id,
-    context: contextWithAcc,
+  assistant.message({
+    assistantId: assistantId,
+    sessionId: req.body.session_id,
     input: {
-      message_type : 'text',
-      text : textIn,
-      options : {
-        return_context : true
+        message_type: 'text',
+        text : textIn,
+        options : {
+          return_context : true
+        }
       }
-    }
-  };
-
-  // Send the input to the assistant service
-  assistant.message(payload, function (err, data) {
-    if (err) {
+    })
+    .then(ares => {
+//      console.log(JSON.stringify(ares.result, null, 2));
+      return res.send(JSON.stringify(ares.result, null, 2));
+    })
+    .catch(err => {
       console.log(err);
       return res.status(err.code || 500).json(err);
-    }
+    });
 
-    return res.json(data);
-  });
 });
 
+
+
 app.get('/api/session', function (req, res) {
+
   assistant.createSession({
-    assistant_id: process.env.ASSISTANT_ID || '{assistant_id}',
-  }, function (error, response) {
-    if (error) {
-      console.log(error);
-      return res.send(error);
-    } else {
-      return res.send(response);
-    }
+    assistantId: assistantId
+  })
+  .then(sres => {
+//    console.log(JSON.stringify(sres.result, null, 2));
+    return res.send(JSON.stringify(sres.result, null, 2));
+  })
+  .catch(err => {
+    console.log(err);
+    return res.status(err.code || 500).json(err);
   });
+
 });
 
 module.exports = app;

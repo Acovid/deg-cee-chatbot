@@ -1,6 +1,6 @@
 applications:
   - name: deg-cee-chatbot
+    path: .
 command: npm start
-path: .
 memory: 512M
 instances: 1
