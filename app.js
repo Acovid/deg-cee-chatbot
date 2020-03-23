@@ -18,7 +18,8 @@
 
 var express = require('express'); // app server
 var bodyParser = require('body-parser'); // parser for post requests
-var AssistantV2 = require('watson-developer-cloud/assistant/v2'); // watson sdk
+//var AssistantV2 = require('watson-developer-cloud/assistant/v2'); // watson sdk
+var AssistantV2 = require('ibm-watson/assistant/v2');
 
 var app = express();
 
@@ -105,8 +106,12 @@ app.use(bodyParser.json());
 
 // Create the service wrapper
 
-var assistant = new AssistantV2({
+/*var assistant = new AssistantV2({
   version: '2018-11-08'
+});
+*/
+var assistant = new AssistantV2({
+  version: '2019-02-28'
 });
 
 var newContext = {
@@ -127,6 +132,8 @@ app.post('/api/message', function (req, res) {
       }
     });
   }
+  console.log("AssitantID: " + assistantId);
+
   var contextWithAcc = (req.body.context) ? req.body.context : newContext;
 
   if (req.body.context) {
@@ -157,6 +164,7 @@ app.post('/api/message', function (req, res) {
   // Send the input to the assistant service
   assistant.message(payload, function (err, data) {
     if (err) {
+      console.log(err);
       return res.status(err.code || 500).json(err);
     }
 
@@ -169,6 +177,7 @@ app.get('/api/session', function (req, res) {
     assistant_id: process.env.ASSISTANT_ID || '{assistant_id}',
   }, function (error, response) {
     if (error) {
+      console.log(error);
       return res.send(error);
     } else {
       return res.send(response);
